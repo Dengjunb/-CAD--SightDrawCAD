@@ -1,0 +1,62 @@
+{
+  "maxVolumeMB": 95,
+  "groups": {
+    "01_桌面壳": [
+      {
+        "volume": "卷1",
+        "files": 72,
+        "mb": 82.6
+      },
+      {
+        "volume": "卷2",
+        "files": 1,
+        "mb": 95.0
+      },
+      {
+        "volume": "卷3",
+        "files": 1,
+        "mb": 73.6
+      }
+    ],
+    "02_前端资源": [
+      {
+        "volume": "文件",
+        "files": 2,
+        "mb": 0.0
+      }
+    ],
+    "03_引擎程序": [
+      {
+        "volume": "文件",
+        "files": 1,
+        "mb": 10.5
+      }
+    ],
+    "04_引擎依赖": [
+      {
+        "volume": "卷1",
+        "files": 72,
+        "mb": 18.1
+      },
+      {
+        "volume": "卷2",
+        "files": 6,
+        "mb": 82.3
+      },
+      {
+        "volume": "卷3",
+        "files": 154,
+        "mb": 86.0
+      }
+    ]
+  },
+  "chunked": [
+    {
+      "rel": "识绘CAD.exe",
+      "parts": [
+        "识绘CAD.exe.part01",
+        "识绘CAD.exe.part02"
+      ]
+    }
+  ]
+}

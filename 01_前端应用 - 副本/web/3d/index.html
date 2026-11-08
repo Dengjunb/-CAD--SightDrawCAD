@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 全自动生成 3D · AI 3D</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <a class="back" href="/?mod=ai" title="返回 AI 制图">←</a>
+    <span class="logo">◫</span>
+    <div>
+      <h1>AI 全自动生成 3D <span class="en">Image → CAD → 3D</span></h1>
+      <p>图片自动识别轮廓 · 按最大轮廓拉伸成实体（带孔）· 可导出 STL / OBJ</p>
+    </div>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/?mod=ai" title="返回 AI 制图（看图成图）">AI 制图</a>
+    <label class="btn primary" for="v3file">选择图片</label>
+    <input id="v3file" type="file" accept="image/*" hidden>
+    <button id="v3demo" class="btn">示例图</button>
+    <button id="v3sketch" class="btn" title="读取参数化草图草稿并拉伸">从草图导入</button>
+    <span class="sep"></span>
+    <label class="depth">拉伸 <input id="v3height" type="range" min="2" max="120" step="1" value="20"><b id="v3depthVal">20</b> mm</label>
+    <span class="sep"></span>
+    <button id="v3iso" class="btn" title="等轴测">等轴</button>
+    <button id="v3top" class="btn" title="俯视">俯视</button>
+    <button id="v3front" class="btn" title="正视">正视</button>
+    <button id="v3left" class="btn" title="左视">左视</button>
+    <button id="v3fit" class="btn">适应视图</button>
+    <button id="v3obj" class="btn">导出 OBJ</button>
+    <button id="v3stl" class="btn primary">导出 STL</button>
+  </div>
+</header>
+
+<main class="workspace">
+  <aside class="panel">
+    <div id="v3status" class="status">就绪</div>
+    <section class="pane">
+      <h2>流程</h2>
+      <div class="steps">
+        <div><b>1</b> 图片 → 预处理（深底自动反相 / 纠偏 / 文字保护）</div>
+        <div><b>2</b> 矢量化（直线 / 圆 / 闭合轮廓 + 拓扑整理）</div>
+        <div><b>3</b> 取最大闭合轮廓为外形，内部轮廓作孔</div>
+        <div><b>4</b> 三角化 + 拉伸 → 网格（可导 STL/OBJ）</div>
+      </div>
+    </section>
+    <section class="pane">
+      <h2>生成结果</h2>
+      <div id="v3stats" class="stats">还没有结果</div>
+    </section>
+    <section class="pane grow">
+      <h2>识别日志</h2>
+      <div id="v3log" class="log"></div>
+    </section>
+  </aside>
+  <section class="stage">
+    <canvas id="v3canvas" class="canvas"></canvas>
+<div class="viewcube" id="viewcube">
+  <button data-v="top">上</button><button data-v="front">前</button><button data-v="right">右</button>
+  <button data-v="left">左</button><button data-v="iso">等轴</button><button data-v="back">后</button>
+  <button data-v="bottom">下</button><button data-v="front">前视</button><button data-v="iso">ISO</button>
+</div>
+    <div class="hint">拖动旋转 · 滚轮缩放</div>
+  </section>
+</main>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>
+
+
