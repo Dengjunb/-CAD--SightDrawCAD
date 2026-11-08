@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAD 双模式智能识图 · 图框识读 / 看图成图</title>
+<link rel="stylesheet" href="/static/styles.css">
+<link rel="stylesheet" href="/static/portal.css">
+
+</head>
+<body class="ai-light">
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="3.5" y="3.5" width="25" height="25" rx="4" fill="none" stroke="currentColor" stroke-width="2"></rect>
+      <path d="M9 22 L15.5 9.5 L22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+      <circle cx="15.5" cy="17.5" r="2.2" fill="none" stroke="currentColor" stroke-width="2"></circle>
+    </svg>
+    <div class="brand-text">
+      <h1>CAD 双模式智能识图</h1>
+      <p class="brand-sub">图框识读：DXF / DWG → 标题栏字段与标准化块　·　看图成图：图片 → DXF / SVG</p>
+    </div>
+  </div>
+
+  <nav class="mode-tabs" id="modeTabs" role="tablist" aria-label="工作模式">
+    <button type="button" class="mode-tab" data-mode="a" role="tab" aria-selected="false">
+      <span class="mode-tab-title">图框识读</span>
+      <span class="mode-tab-sub">DXF / DWG → 字段</span>
+    </button>
+    <button type="button" class="mode-tab is-active" data-mode="b" role="tab" aria-selected="true">
+      <span class="mode-tab-title">看图成图</span>
+      <span class="mode-tab-sub">图片 → CAD</span>
+    </button>
+  </nav>
+
+  <div class="ai-bar" id="aiBar">
+    <label class="ai-bar-label" for="aiInput">AI 制图</label>
+    <select id="aiModel" class="ai-model" title="选择要连接的大模型"></select>
+    <input id="aiInput" class="ai-input" type="text" placeholder="用一句话描述任务：例如「把这张图转成 CAD 并加尺寸标注」" autocomplete="off">
+    <button type="button" id="aiSubmit" class="ai-submit">执行</button>
+  </div>
+  <div class="topbar-meta">
+    <button type="button" id="aiLightBtn" class="ai-settings-btn" title="AI 窗口浅色 / 深色">&#9728; 浅色</button>
+    <button type="button" id="aiSelfDraw" class="ai-settings-btn" title="AI 制图：有图片就走识图，没图片就用一句话自绘">&#9998; AI 制图</button>
+    <button type="button" id="aiTo3d" class="ai-settings-btn"
+      title="同一窗口的另一半：图片 / 草图 → 带孔实体 → STL / OBJ">&#129513; AI 全自动 3D</button>
+    <button type="button" id="aiSettingsBtn" class="ai-settings-btn"
+      title="管理 AI 大模型：导入 / 新增 / 测试 / 切换（不用手改配置文件）">&#9881; AI 设置</button>
+    <span class="badge" id="modeBadge" hidden>联调模式</span>
+    <span class="server-state" id="serverState"><i class="dot"></i><span id="serverStateText">连接本地服务…</span></span>
+  </div>
+</header>
+
+<main class="mode-shell">
+
+  <!-- ==================================================================
+       模式 A：图框识读
+       ================================================================== -->
+  <section class="workspace" id="modeA" hidden>
+
+    <section class="column column-left">
+
+      <section class="card source-card">
+        <div class="card-head">
+          <h2 class="card-title">图纸来源</h2>
+          <span class="card-hint" id="tbDemoCount"></span>
+        </div>
+        <div class="tb-demo-list" id="tbDemoGrid">
+          <p class="empty-hint">加载示例图框…</p>
+        </div>
+        <div class="upload-row">
+          <label class="upload-btn" for="tbFileInput">选择本地图框</label>
+          <input type="file" id="tbFileInput" accept=".dxf,.dwg" hidden>
+          <span class="upload-name" id="tbFileName">DXF / DWG，≤ 32MB</span>
+        </div>
+        <p class="source-note" id="tbSourceNote">尚未选择图框文件</p>
+      </section>
+
+      <section class="card preview-card">
+        <div class="card-head">
+          <h2 class="card-title">图纸预览</h2>
+          <div class="segmented" id="tbPreviewToggle" role="group" aria-label="预览模式">
+            <button type="button" class="seg-btn is-active" data-tb-view="before">原图</button>
+            <button type="button" class="seg-btn" data-tb-view="after">标准化后</button>
+          </div>
+        </div>
+        <div class="stage stage-a" id="tbPreviewStage">
+          <div class="stage-empty" id="tbPreviewEmpty">
+            <svg class="empty-icon" viewBox="0 0 48 48" aria-hidden="true">
+              <rect x="6" y="9" width="36" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="2"></rect>
+              <path d="M6 18h36M16 18v21M28 18v21" fill="none" stroke="currentColor" stroke-width="2"></path>
+            </svg>
+            <p class="empty-title">尚未生成预览</p>
+            <p class="empty-hint">选择示例图框或上传 DXF / DWG，点击「开始识读」后在这里显示图纸预览（橙色框标出标题栏区域）。</p>
+          </div>
+          <img class="stage-img" id="tbPreviewImg" alt="图框预览" hidden>
+        </div>
+        <p class="source-note" id="tbPreviewMeta">预览来自识读引擎；原稿不会被修改。</p>
+      </section>
+
+      <section class="card action-card">
+        <div class="card-head">
+          <h2 class="card-title">识读操作</h2>
+        </div>
+        <button type="button" class="primary-btn" id="tbStartBtn" disabled>开始识读</button>
+        <p class="run-hint" id="tbRunHint">选择图框后可开始；识读会定位标题栏、配对字段并生成标准化块副本。</p>
+        <div class="error-banner" id="tbErrorBanner" hidden>
+          <span class="error-title">识读失败</span>
+          <span class="error-text" id="tbErrorText"></span>
+        </div>
+      </section>
+    </section>
+
+    <section class="column column-right">
+
+      <section class="card steps-card">
+        <div class="card-head">
+          <h2 class="card-title">识读过程</h2>
+          <span class="run-status" id="tbRunStatus">未开始</span>
+        </div>
+        <ol class="tb-step-list" id="tbStepList"></ol>
+        <div class="empty-state" id="tbStepsEmpty">
+          <p class="empty-title">等待识读</p>
+          <p class="empty-hint">点击「开始识读」后，这里会依次展示解析图纸、字段识别、定位标题栏、字段配对、生成标准化块、另存副本 6 个步骤。</p>
+        </div>
+      </section>
+
+      <section class="card fields-card">
+        <div class="card-head">
+          <h2 class="card-title">字段结果</h2>
+          <span class="card-hint" id="tbStatsHint"></span>
+        </div>
+        <div class="tb-badge-row" id="tbStatsBadges"></div>
+        <div class="tb-table-wrap" id="tbFieldTableWrap" hidden></div>
+        <div class="empty-state" id="tbFieldsEmpty">
+          <p class="empty-title">还没有字段结果</p>
+          <p class="empty-hint">识读完成后在这里显示「字段 / 值 / 置信度」；空值与未匹配项会用不同样式标出。</p>
+        </div>
+      </section>
+
+      <section class="card unmatched-card" id="tbUnmatchedCard" hidden>
+        <div class="card-head">
+          <h2 class="card-title">未匹配项</h2>
+          <span class="card-hint" id="tbUnmatchedCount"></span>
+        </div>
+        <div id="tbUnmatchedBody"></div>
+      </section>
+
+      <section class="card download-card">
+        <div class="card-head"><h2 class="card-title">输出文件</h2></div>
+        <div class="download-grid">
+          <a class="download is-disabled" id="tbDlDxf" aria-disabled="true"><span class="dl-format">DXF</span><span class="dl-text">标准化图框</span></a>
+          <a class="download is-disabled" id="tbDlJson" aria-disabled="true"><span class="dl-format">JSON</span><span class="dl-text">识读结果</span></a>
+        </div>
+        <p class="download-hint" id="tbDownloadHint">识读完成后可下载「标准化 DXF」与「识读 JSON」；原稿不会被修改。</p>
+      </section>
+    </section>
+  </section>
+
+  <!-- ==================================================================
+       模式 B：看图成图（保持原有功能）
+       ================================================================== -->
+  <section class="workspace" id="modeB">
+
+    <section class="column column-left">
+
+      <section class="card preview-card">
+        <div class="card-head">
+          <h2 class="card-title">图纸预览</h2>
+          <div class="segmented" id="viewToggle" role="group" aria-label="预览模式">
+            <button type="button" class="seg-btn is-active" data-view="original">原图</button>
+            <button type="button" class="seg-btn" data-view="overlay">矢量叠加</button>
+          </div>
+        </div>
+
+        <div class="stage" id="previewStage">
+          <div class="cad-toolbar" id="cadToolbar" hidden>
+            <button type="button" class="cad-btn" id="cadZoomOut" title="缩小">−</button>
+            <span class="cad-zoom" id="cadZoom">100%</span>
+            <button type="button" class="cad-btn" id="cadZoomIn" title="放大">＋</button>
+            <button type="button" class="cad-btn" id="cadFit" title="适应窗口">适应</button>
+            <button type="button" class="cad-btn is-active" id="cadGrid" title="CAD 网格">网格</button>
+            <span class="cad-layers" id="cadLayers">
+              <label><input type="checkbox" data-layer="seg" checked>线段</label>
+              <label><input type="checkbox" data-layer="cir" checked>圆</label>
+              <label><input type="checkbox" data-layer="rec" checked>矩形</label>
+              <label><input type="checkbox" data-layer="txt" checked>文字区</label>
+<label><input type="checkbox" data-layer="dim" checked>尺寸标注</label>
+            </span>
+          </div>
+          <div class="stage-empty" id="stageEmpty">
+            <svg class="empty-icon" viewBox="0 0 48 48" aria-hidden="true">
+              <rect x="6" y="9" width="36" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="2"></rect>
+              <path d="M6 18h36M16 18v21" fill="none" stroke="currentColor" stroke-width="2"></path>
+              <circle cx="33" cy="30" r="6" fill="none" stroke="currentColor" stroke-width="2"></circle>
+            </svg>
+            <p class="empty-title">还没有图纸</p>
+            <p class="empty-hint">从下方选一张示例图，或上传自己的扫描件 / 手机照片</p>
+          </div>
+          <div class="canvas-wrap" id="canvasWrap" hidden>
+            <img id="previewImg" alt="图纸预览">
+            <svg id="overlay" preserveAspectRatio="none" aria-hidden="true"></svg>
+          </div>
+          <div class="stage-meta" id="stageMeta" hidden>
+            <span id="metaName">—</span>
+            <span class="meta-sep">·</span>
+            <span id="metaSize">—</span>
+          </div>
+          <div class="cad-hud" id="cadHud" hidden>X —　Y —　<span id="cadHudZoom">100%</span></div>
+          <div class="cad-hint" id="cadHelp" hidden>滚轮缩放 · 拖动平移 · 双击适应</div>
+        </div>
+
+        <div class="overlay-bar">
+          <div class="opacity-row">
+            <label class="slider-label" for="opacity">叠加透明度</label>
+            <input type="range" id="opacity" min="10" max="100" step="1" value="72">
+            <output id="opacityVal" for="opacity">72%</output>
+          </div>
+          <ul class="legend" id="legend">
+            <li><i class="lg lg-line"></i>线段</li>
+            <li><i class="lg lg-circle"></i>圆</li>
+            <li><i class="lg lg-rect"></i>矩形</li>
+            <li><i class="lg lg-text"></i>文字区</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="card source-card">
+        <div class="card-head">
+          <h2 class="card-title">图片来源</h2>
+          <span class="card-hint" id="demoCount"></span>
+        </div>
+        <div class="demo-grid" id="demoGrid">
+          <p class="empty-hint">加载示例图…</p>
+        </div>
+        <div class="upload-row">
+          <label class="upload-btn" for="fileInput">选择本地图片</label>
+          <input type="file" id="fileInput" accept="image/*" hidden>
+          <span class="upload-name" id="uploadName">PNG / JPG / BMP / TIF，≤ 64MB</span>
+        </div>
+        <p class="source-note" id="sourceNote">尚未选择图纸</p>
+      </section>
+
+      <section class="card params-card">
+        <div class="card-head">
+          <h2 class="card-title">识别参数</h2>
+          <button type="button" class="ghost-btn" id="resetParams">恢复默认</button>
+        </div>
+        <div class="params" id="paramPanel">
+          <p class="empty-hint">正在读取参数定义…</p>
+        </div>
+        <div class="run-mode-row">
+          <span class="slider-label">运行方式</span>
+          <div class="segmented" id="runModeToggle" role="group" aria-label="运行方式">
+            <button type="button" class="seg-btn is-active" data-run-mode="auto">自动</button>
+            <button type="button" class="seg-btn" data-run-mode="manual">手动分步</button>
+          </div>
+          <span class="run-mode-hint" id="runModeHint">一键跑完</span>
+        </div>
+        <div class="run-bar">
+          <button type="button" class="primary-btn" id="startBtn" disabled>开始生成</button>
+          <p class="run-hint" id="runHint">选择图纸后可开始；生成时按左侧参数执行。</p>
+        </div>
+        <div class="manual-bar" id="manualBar" hidden>
+          <div class="manual-stage-row">
+            <span class="manual-stage" id="manualStage">第 0 / 9 步</span>
+            <span class="manual-stage-title" id="manualStageTitle">—</span>
+          </div>
+          <div class="manual-actions">
+            <button type="button" class="primary-btn is-small" id="manualNext" disabled>执行下一步</button>
+            <button type="button" class="ghost-btn" id="manualApply" disabled>应用参数并重跑</button>
+            <button type="button" class="ghost-btn" id="manualRerun" disabled>重跑本步</button>
+            <button type="button" class="ghost-btn is-danger" id="manualStop" disabled>停止</button>
+          </div>
+          <p class="manual-hint" id="manualHint">手动模式：每步结束会暂停，可看截图与指标、改参数后「应用参数并重跑」，再继续下一步。</p>
+        </div>
+        <div class="error-banner" id="errorBanner" hidden>
+          <span class="error-title">出错了</span>
+          <span class="error-text" id="errorText"></span>
+        </div>
+      </section>
+    </section>
+
+    <section class="column column-right">
+
+      <section class="card steps-card">
+        <div class="card-head">
+          <h2 class="card-title">生成过程</h2>
+          <div class="card-head-actions">
+            <button type="button" class="ghost-btn play-btn" id="playProcessBtn" disabled>播放过程</button>
+            <span class="run-status" id="runStatus">未开始</span>
+          </div>
+        </div>
+        <div class="progress" id="progressBar" hidden><div class="progress-fill" id="progressFill"></div></div>
+        <ol class="step-list" id="stepList"></ol>
+        <div class="empty-state" id="stepsEmpty">
+          <p class="empty-title">等待开始</p>
+          <p class="empty-hint">左侧选择图片并点击「开始生成」，这里会逐步出现识别步骤、缩略图与耗时。点缩略图可放大查看；生成完成后可用「播放过程」回放。</p>
+        </div>
+      </section>
+
+      <section class="card stats-card">
+        <div class="card-head">
+          <h2 class="card-title">结果统计</h2>
+          <span class="card-hint" id="statsHint"></span>
+        </div>
+        <div class="stat-grid">
+          <div class="stat"><span class="stat-value" id="statSegments">—</span><span class="stat-label">线段</span></div>
+          <div class="stat"><span class="stat-value" id="statCircles">—</span><span class="stat-label">圆</span></div>
+          <div class="stat"><span class="stat-value" id="statRects">—</span><span class="stat-label">矩形</span></div>
+          <div class="stat"><span class="stat-value" id="statTexts">—</span><span class="stat-label">文字区</span></div>
+          <div class="stat"><span class="stat-value accent" id="statF1">—</span><span class="stat-label">F1 自检</span></div>
+          <div class="stat"><span class="stat-value" id="statElapsed">—</span><span class="stat-label">总耗时</span></div>
+        </div>
+        <details class="quality-box" id="qualityBox" hidden>
+          <summary>质量自检明细</summary>
+          <dl class="quality-list" id="qualityList"></dl>
+        </details>
+        <p class="stats-note" id="statsNote">生成完成后显示识别数量与栅格自检分数。</p>
+      </section>
+
+      <section class="card download-card">
+        <div class="card-head"><h2 class="card-title">输出文件</h2></div>
+        <div class="download-grid" id="downloadGrid">
+          <a class="download is-disabled" id="dlDxf" aria-disabled="true"><span class="dl-format">DXF</span><span class="dl-text">CAD 图形</span></a>
+          <a class="download is-disabled" id="dlSvg" aria-disabled="true"><span class="dl-format">SVG</span><span class="dl-text">矢量预览</span></a>
+          <a class="download is-disabled" id="dlJson" aria-disabled="true"><span class="dl-format">JSON</span><span class="dl-text">JSON 数据</span></a>
+          <a class="download is-disabled" id="dlReport" aria-disabled="true"><span class="dl-format">HTML</span><span class="dl-text">处理报告</span></a>
+        </div>
+        <p class="download-hint" id="downloadHint">生成完成后可下载 DXF、SVG、场景 JSON 与 HTML 报告。</p>
+      </section>
+
+      <section class="card recognition-card">
+        <div class="card-head">
+          <h2 class="card-title">图框识读联动</h2>
+          <button type="button" class="ghost-btn" id="refreshRecognition" disabled>重新识读</button>
+        </div>
+        <div class="recognition-body" id="recognitionBody">
+          <p class="empty-hint">生成完成后，若勾选「联动图框识读」，这里会显示标题栏字段（零件名称 / 材料 / 图号等）。</p>
+        </div>
+      </section>
+    </section>
+  </section>
+</main>
+
+<!-- 生成过程回放器 -->
+<div class="replay" id="replayModal" hidden>
+  <div class="replay-panel" role="dialog" aria-modal="true" aria-labelledby="replayDialogTitle">
+    <div class="replay-head">
+      <h2 class="replay-dialog-title" id="replayDialogTitle">生成过程回放</h2>
+      <span class="replay-counter" id="replayCounter">1 / 1</span>
+      <button type="button" class="replay-close" id="replayClose" aria-label="关闭">×</button>
+    </div>
+    <div class="replay-stage">
+      <img id="replayImg" alt="步骤回放">
+    </div>
+    <div class="replay-progress"><div class="replay-progress-fill" id="replayProgressFill"></div></div>
+    <div class="replay-info">
+      <h3 class="replay-step-title" id="replayStepTitle">—</h3>
+      <p class="replay-step-detail" id="replayStepDetail">—</p>
+      <p class="replay-step-meta" id="replayStepMeta"></p>
+    </div>
+    <div class="replay-controls">
+      <button type="button" class="replay-btn" id="replayPrev">上一张</button>
+      <button type="button" class="replay-btn is-primary" id="replayPlay">暂停</button>
+      <button type="button" class="replay-btn" id="replayNext">下一张</button>
+    </div>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox" hidden>
+  <button type="button" class="lightbox-close" id="lightboxClose" aria-label="关闭">×</button>
+  <figure>
+    <img id="lightboxImg" alt="步骤大图">
+    <figcaption id="lightboxCaption"></figcaption>
+  </figure>
+</div>
+
+
+<!-- ==== AI_CHAT_DRAWER_v22 : AI 对话抽屉 ==== -->
+<button type="button" id="aiFab" class="ai-fab" title="打开 AI 助手">AI 助手</button>
+<aside id="aiChat" class="ai-chat" hidden>
+  <div class="ai-chat-head">
+    <span class="ai-chat-title">AI 制图助手</span>
+    <select id="aiChatModel" class="ai-chat-model" title="切换模型"></select>
+    <button type="button" id="aiChatClose" class="ai-chat-close" aria-label="关闭">&times;</button>
+  </div>
+  <div id="aiChatLog" class="ai-chat-log"></div>
+  <div class="ai-chat-compose">
+    <textarea id="aiChatInput" class="ai-chat-input" rows="2"
+      placeholder="描述要做什么，例如：把这张图转成 CAD 并加尺寸标注"></textarea>
+    <button type="button" id="aiChatSend" class="ai-chat-send">发送</button>
+  </div>
+  <div id="aiChatStatus" class="ai-chat-status"></div>
+</aside>
+
+
+<div class="ai-draw-pop" id="aiDrawPop" hidden>
+  <div class="ai-pop-head"><b>AI 制图 · 有图识图 / 没图自绘</b>
+    <span>描述零件 → 直接生成 CAD 图元，可导出 DXF</span>
+    <button type="button" class="cad-x" id="aiDrawClose" title="关闭">&times;</button>
+  </div>
+  <div class="ai-pop-row">
+    <input id="aiDrawInput" autocomplete="off" spellcheck="false"
+      placeholder="例：法兰 外圆120 内孔60 6个直径10的孔 均布直径100">
+    <button type="button" class="cad-btn primary" id="aiDrawRun">生成</button>
+  </div>
+  <div class="ai-pop-chips">
+    <button type="button" data-draw="法兰 外圆120 内孔60 6个直径10的孔 均布直径100">法兰 ⌀120 / 6 孔</button>
+    <button type="button" data-draw="板120x80 中心孔直径30">板 120×80 + 中心孔</button>
+    <button type="button" data-draw="板120x80 四角孔直径10">板 + 四角孔</button>
+    <button type="button" data-draw="轴 长200 直径40">轴 ⌀40 × 200</button>
+    <button type="button" data-draw="6个直径10的孔均布在直径100的圆上">6 孔均布 ⌀100</button>
+  </div>
+  <div class="ai-draw-attach">
+    <label class="ai-draw-file" for="aiDrawFile">&#128247; 附图片（有图就识图）</label>
+    <input id="aiDrawFile" type="file" accept="image/*" hidden>
+    <span id="aiDrawFileName">未附图：按自绘处理</span>
+  </div>
+  <div class="ai-pop-reply" id="aiDrawReply">有图 → 走识图出 DXF/SVG；没图 → 按描述自绘。生成后可在「手动」窗口继续编辑。</div>
+  <div class="ai-draw-actions">
+    <button type="button" class="cad-btn" id="aiDrawExport">导出 DXF</button>
+    <button type="button" class="cad-btn" id="aiDrawManual">去手动窗口编辑</button>
+    <span class="ai-draw-count" id="aiDrawCount"></span>
+  </div>
+</div>
+
+<script src="/static/mdraw.js"></script>
+<script src="/static/portal.js"></script>
+<script src="/static/aimodels.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

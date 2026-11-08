@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>参数化草图 · Parametric 2D Sketch CAD</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">⌬</span>
+    <div class="brand-text">
+      <h1>参数化草图 <span class="en">Parametric Sketch</span></h1>
+      <p>尺寸约束 · 几何约束 · 图元管理 · DXF 导出</p>
+    </div>
+  </div>
+
+  <div class="top-actions">
+    <a class="btn" href="/?mod=manual" title="回到手动窗口（手动绘图）">← 手动绘图</a>
+    <button id="to3d" class="btn" title="保存草稿并在 3D 页拉伸">发送到 3D</button>
+    <span id="solve-badge" class="badge badge-warn">求解中…</span>
+    <button id="demo-btn" class="btn">示例</button>
+    <button id="fit-btn" class="btn">适应视图</button>
+    <span class="sep"></span>
+    <button id="undo-btn" class="btn icon" title="撤销 (Ctrl+Z)">↶</button>
+    <button id="redo-btn" class="btn icon" title="重做 (Ctrl+Y)">↷</button>
+    <span class="sep"></span>
+    <button id="save-btn" class="btn">保存草稿</button>
+    <button id="load-btn" class="btn">载入草稿</button>
+    <label class="btn" for="import-input">导入 DXF</label>
+    <input id="import-input" type="file" accept=".dxf,text/plain" hidden>
+    <button id="pdf-btn" class="btn">打印 / PDF</button>
+    <button id="dxf-btn" class="btn primary">导出 DXF</button>
+    <button id="help-btn" class="btn icon" title="帮助">?</button>
+    <button id="clear-btn" class="btn ghost">清空</button>
+  </div>
+</header>
+
+<main class="workspace">
+  <aside class="toolrail">
+    <div class="rail-title">绘图</div>
+    <div class="toolgrid">
+      <button class="tool" data-tool="select" title="选择 (Esc)"><span>⬚</span><i>选择</i></button>
+      <button class="tool" data-tool="line" title="直线 (L)"><span>／</span><i>直线</i></button>
+      <button class="tool" data-tool="rect" title="矩形 (R)"><span>▭</span><i>矩形</i></button>
+      <button class="tool" data-tool="circle" title="圆 (C)"><span>○</span><i>圆</i></button>
+      <button class="tool" data-tool="arc" title="圆弧 (A)"><span>◜</span><i>圆弧</i></button>
+      <button class="tool" data-tool="point" title="点 (P)"><span>•</span><i>点</i></button>
+    </div>
+
+    <div class="rail-title">几何约束</div>
+    <div class="kengrid">
+      <button class="kbtn" data-constraint="coincident" title="重合约束"><b>●</b><i>重合</i></button>
+      <button class="kbtn" data-constraint="horizontal" title="水平约束"><b>H</b><i>水平</i></button>
+      <button class="kbtn" data-constraint="vertical" title="竖直约束"><b>V</b><i>竖直</i></button>
+      <button class="kbtn" data-constraint="parallel" title="平行约束"><b>∥</b><i>平行</i></button>
+      <button class="kbtn" data-constraint="perpendicular" title="垂直约束"><b>⊥</b><i>垂直</i></button>
+      <button class="kbtn" data-constraint="tangent" title="相切约束"><b>T</b><i>相切</i></button>
+      <button class="kbtn" data-constraint="equalLength" title="等长约束"><b>=</b><i>等长</i></button>
+      <button class="kbtn" data-constraint="equalRadius" title="等半径约束"><b>=R</b><i>等半径</i></button>
+      <button class="kbtn" data-constraint="symmetric" title="对称约束"><b>⇔</b><i>对称</i></button>
+      <button class="kbtn" data-constraint="midpoint" title="中点约束"><b>M</b><i>中点</i></button>
+      <button class="kbtn" data-constraint="pointOnLine" title="点在线上"><b>⌐</b><i>点在线上</i></button>
+      <button class="kbtn" data-constraint="pointOnCircle" title="点在圆上"><b>◌</b><i>点在圆上</i></button>
+      <button class="kbtn" data-constraint="fix" title="固定点"><b>⚓</b><i>固定</i></button>
+    </div>
+
+    <div class="rail-title">尺寸约束</div>
+    <div class="kengrid">
+      <button class="kbtn dim" data-constraint="distance" title="两点距离"><b>↔</b><i>距离</i></button>
+      <button class="kbtn dim" data-constraint="distanceX" title="水平距离"><b>↔|</b><i>水平距</i></button>
+      <button class="kbtn dim" data-constraint="distanceY" title="竖直距离"><b>↕</b><i>竖直距</i></button>
+      <button class="kbtn dim" data-constraint="radius" title="半径"><b>R</b><i>半径</i></button>
+      <button class="kbtn dim" data-constraint="diameter" title="直径"><b>⌀</b><i>直径</i></button>
+      <button class="kbtn dim" data-constraint="angle" title="角度"><b>∠</b><i>角度</i></button>
+    </div>
+  </aside>
+
+  <section class="stage">
+    <div id="canvas-wrap" class="canvas-wrap">
+      <svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+
+      <div class="nl-panel">
+        <div class="nl-head">AI 建模 <span>用自己的话画出草图</span></div>
+        <div class="nl-row">
+          <input id="nl-input" placeholder="画一个长120宽80的矩形 / 在中心打一个直径30的孔 / 把长度改成150">
+          <button id="nl-send" class="nl-send">生成</button>
+        </div>
+        <div class="nl-chips">
+          <button data-nl="画一个长120宽80的矩形">120×80 矩形</button>
+          <button data-nl="在中心打一个直径30的孔">中心孔 ⌀30</button>
+          <button data-nl="把长度改成150">长度改 150</button>
+        </div>
+        <div id="nl-reply" class="nl-reply"></div>
+      </div>
+    </div>
+    <footer class="statusbar">
+      <span id="status-hint">选择对象；拖动点/图元移动</span>
+      <span class="grow"></span>
+      <span id="status-coords">X 0.00  Y 0.00 mm</span>
+      <span id="status-sel"></span>
+      <span id="status-solve" class="status-ok">—</span>
+      <span id="status-counts">0 线</span>
+      <span id="status-vars"></span>
+    </footer>
+  </section>
+
+  <aside class="panel">
+    <section class="pane">
+      <h2>求解诊断</h2>
+      <div id="diagnostics" class="diagbox"></div>
+    </section>
+
+    <section class="pane grow">
+      <div class="tabs">
+        <button class="tab active" data-tab="cons">约束 <small>（改值联动）</small></button>
+        <button class="tab" data-tab="ents">图元 <small>（点选/双击定位）</small></button>
+      </div>
+      <div id="constraint-list" class="klist tab-body"></div>
+      <div id="entity-list" class="klist tab-body" hidden></div>
+    </section>
+
+    <section class="pane">
+      <h2>特性</h2>
+      <div id="props" class="propbox"></div>
+    </section>
+  </aside>
+</main>
+
+<div id="help-panel" class="help">
+  <h3>参数化草图 · 操作速查</h3>
+  <ul>
+    <li><b>绘图</b>：L 直线 / R 矩形 / C 圆 / A 圆弧 / P 点；Esc 回到选择；画线接近水平/竖直会自动加约束</li>
+    <li><b>选择</b>：单击选中，Shift 多选；空白处拖框选；拖动点或图元实时求解</li>
+    <li><b>图元</b>：右侧「图元」页签列出全部对象，单击选中、双击缩放到该对象</li>
+    <li><b>加约束</b>：先选图元（点/线/圆），再点左侧约束按钮</li>
+    <li><b>尺寸</b>：右侧约束列表里直接改数值，几何立即联动</li>
+    <li><b>撤销/重做</b>：Ctrl+Z / Ctrl+Y；Delete 删除选中</li>
+    <li><b>视图</b>：滚轮缩放（以光标为中心），中键 / Alt+左键平移</li>
+    <li><b>导出</b>：DXF R12（可在 AutoCAD 直接打开）；「打印 / PDF」输出矢量图纸（Ctrl+P）</li>
+  </ul>
+  <p class="note">求解器：Levenberg–Marquardt + 数值雅可比；诊断给出自由度、冗余约束与冲突约束。</p>
+</div>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>
+
+
+
