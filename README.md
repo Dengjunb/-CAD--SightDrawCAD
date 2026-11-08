@@ -1,5 +1,6 @@
 # CAD 双模式智能识图 v3.0 · 软件架构目录
 
+> 识绘 CAD v3.0（曾用名：CAD 双模式智能识图）
 > 本目录只放**软件本体**（前端 / 后端 / 桌面端 / 可运行程序），不含截图、文档、示例素材。
 > 直接运行：双击 `04_运行程序/启动-组装并运行.bat`，脚本还原运行目录并启动。
 
@@ -53,67 +54,9 @@ CAD双模式智能识图_v3.0/
     ├─ 00_说明.md                 分卷说明
     ├─ 拆分清单.json              分卷元数据
     ├─ 启动-组装并运行.bat        双击：还原运行目录并启动
-    ├─ assemble.ps1               组装脚本（分卷复制 + exe 合并）
-    ├─ 01_桌面壳/                 卷1 95.0 / 卷2 90.2 / 卷3 66.1 MB
-    ├─ 02_前端资源/               resources/app.asar + ai_config.json（<1 MB）
-    ├─ 03_引擎程序/               resources/backend/CADEngine.exe（10.5 MB）
-    └─ 04_引擎依赖/               卷1 18.1 / 卷2 82.3 / 卷3 86.0 MB（_internal）
+    ├─ assemble.ps1               组装脚本
+    ├─ 01_桌面壳/                 卷1 82.6 MB / 卷2 95.0 MB / 卷3 73.6 MB
+    ├─ 02_前端资源/               app.asar + ai_config.json（<1 MB）
+    ├─ 03_引擎程序/               CADEngine.exe（10.5 MB）
+    └─ 04_引擎依赖/               卷1 18.1 MB / 卷2 82.3 MB / 卷3 86.0 MB
 ```
-
-## 2. 运行时架构
-
-```
-Electron 主进程 (main.js)
-   ├─ 启动 resources/backend/CADEngine.exe serve --port <随机>
-   ├─ 打开窗口 http://127.0.0.1:<端口>/
-   └─ 前端由后端静态托管（/static/*）
-         ├─ 门户 index.html（两入口：手动 / AI）
-         ├─ 手动工作区 mdraw.js
-         ├─ AI 窗口 app.js（识图 / AI 3D / 模型管理）
-         ├─ 草图 sketch/（参数化约束 + 求解）
-         └─ 3D 3d/（Canvas 网格渲染、STL/OBJ）
-用户数据：草稿存 localStorage；AI 配置存 ai_config.json
-```
-
-## 3. 运行
-
-1. 打开 `04_运行程序/`
-2. 双击 `启动-组装并运行.bat`（首次约 10–30 秒，还原 ~450 MB 到 `运行目录/`）
-3. 程序自动启动
-
-> 不安装 Python/Node、不联网；端口自动分配。
-> 只组装不启动：`powershell -ExecutionPolicy Bypass -File .\assemble.ps1 -NoLaunch`
-
-## 4. 构建（开发者）
-
-**后端（PyInstaller）**
-```bat
-cd 02_后端引擎
-py -m PyInstaller --noconfirm --clean CADEngine.spec
-:: 产物 dist\CADEngine → 复制到 desktop/resources/backend
-```
-
-**桌面端（Electron）**
-```bat
-cd 03_桌面端
-npm install
-:: 按 README 组装 app.asar 与 backend
-```
-
-## 5. 能力索引
-
-| 能力 | 入口 | 代码位置 |
-| --- | --- | --- |
-| AI 制图（说一句话出零件） | 手动窗口「AI 制图」 | mdraw.js `aiDraw/aiApply` |
-| 看图成图（识图转 DXF） | 门户「AI」→ 看图成图 | app.js + pipeline/vectorize/dxf_writer |
-| AI 全自动 3D | AI 窗口「AI 全自动 3D」 | 3d/ + ai 轮廓 |
-| 参数化草图 | 手动窗口「草图」 | sketch/ + 后端求解接口 |
-| 标注/块/表格/填充/布局 | 手动窗口菜单/工具条 | mdraw.js |
-| DXF 导出 | 文件菜单/工具条 | mdraw.js `exportDXF` |
-| 打印/PDF | 文件菜单 | mdraw.js 布局 + window.print |
-
-## 6. 版本
-
-- 版本：v3.0（2026-11-08）
-- 引擎：Python 3.14 + numpy / OpenCV / ezdxf
-- 桌面壳：Electron 28.3.3（Windows x64）
